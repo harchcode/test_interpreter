@@ -35,12 +35,12 @@ export function run(source: string) {
   const tokens = scanTokens();
 
   initParser(tokens);
-  const expr = parse();
+  const statements = parse();
 
-  if (hadError || !expr) return;
+  if (hadError || !statements) return;
 
   // console.log(printAST(expr));
-  interpret(expr);
+  interpret(statements);
 }
 
 export function runFile(path: string) {

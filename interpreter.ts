@@ -1,9 +1,11 @@
-import { Expr, Visitor, accept } from "./expr";
+import { defineVar, getVarValue } from "./environment";
+import { Expr, Visitor as ExprVisitor, accept as acceptExpr } from "./expr";
 import { runtimeError } from "./nol";
 import { RuntimeError } from "./runtime-error";
+import { Stmt, Visitor as StmtVisitor, accept as acceptStmt } from "./stmt";
 import { Token } from "./token";
 
-const interpreter: Visitor<unknown> = {
+const interpreter: ExprVisitor<unknown> & StmtVisitor<void> = {
   visitLiteralExpr(expr) {
     return expr.value;
   },
@@ -71,10 +73,31 @@ const interpreter: Visitor<unknown> = {
 
     return null;
   },
+  visitVariableExpr(expr) {
+    return getVarValue(expr.name);
+  },
+  visitExpressionStmt(stmt) {
+    evaluate(stmt.expression);
+
+    return null;
+  },
+  visitPrintStmt(stmt) {
+    const value = evaluate(stmt.expression);
+    console.log(value);
+
+    return null;
+  },
+  visitVarStmt(stmt) {
+    const value = stmt.initializer != null ? evaluate(stmt.initializer) : null;
+
+    defineVar(stmt.name.lexeme, value);
+
+    return null;
+  },
 };
 
 function evaluate(expr: Expr) {
-  return accept(expr, interpreter);
+  return acceptExpr(expr, interpreter);
 }
 
 function isTruthy(value: unknown) {
@@ -95,12 +118,16 @@ function checkNumberOperands(operator: Token, left: unknown, right: unknown) {
   throw new RuntimeError(operator, "Operands must be numbers.");
 }
 
-export function interpret(expression: Expr) {
+export function interpret(statements: Stmt[]) {
   try {
-    const value = evaluate(expression);
-
-    console.log(value);
-  } catch (err) {
-    runtimeError(err as RuntimeError);
+    for (const statement of statements) {
+      execute(statement);
+    }
+  } catch (error) {
+    runtimeError(error as RuntimeError);
   }
+}
+
+function execute(stmt: Stmt) {
+  acceptStmt(stmt, interpreter);
 }

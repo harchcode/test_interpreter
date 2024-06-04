@@ -4,8 +4,15 @@ import {
   createGroupingExpr,
   createLiteralExpr,
   createUnaryExpr,
+  createVariableExpr,
 } from "./expr";
 import { error } from "./nol";
+import {
+  Stmt,
+  createExpressionStmt,
+  createPrintStmt,
+  createVarStmt,
+} from "./stmt";
 import { Token } from "./token";
 import { TokenType } from "./token-type";
 
@@ -17,11 +24,59 @@ export function initParser(_tokens: Token[]) {
 }
 
 export function parse() {
-  try {
-    return expression();
-  } catch (err) {
-    return null;
+  const statements: Stmt[] = [];
+
+  while (!isAtEnd()) {
+    statements.push(declaration());
   }
+
+  return statements;
+}
+
+function declaration() {
+  try {
+    if (match("VAR")) return varDeclaration();
+
+    return statement();
+  } catch (err) {
+    synchronize();
+
+    throw err;
+  }
+}
+
+function varDeclaration() {
+  const name = consume("IDENTIFIER", "Expect variable name.");
+
+  let initializer: Expr | null = null;
+
+  if (match("EQUAL")) {
+    initializer = expression();
+  }
+
+  consume("SEMICOLON", "Expect ';' after variable declaration.");
+
+  return createVarStmt(name, initializer);
+}
+
+function statement() {
+  if (match("PRINT")) return printStatement();
+
+  return expressionStatement();
+}
+
+function printStatement() {
+  const value = expression();
+  consume("SEMICOLON", "Expect ';' after value.");
+
+  return createPrintStmt(value);
+}
+
+function expressionStatement() {
+  const expr = expression();
+  consume("SEMICOLON", "Expect ';' after expression.");
+
+  return createExpressionStmt(expr);
 }
 
 function isAtEnd() {
@@ -97,6 +152,10 @@ function primary(): Expr {
 
   if (match("NUMBER", "STRING")) {
     return createLiteralExpr(previous().literal);
+  }
+
+  if (match("IDENTIFIER")) {
+    return createVariableExpr(previous());
   }
 
   if (match("LEFT_PAREN")) {

@@ -5,11 +5,13 @@ const exprList = [
   "Grouping : Expr expression",
   "Literal  : unknown value",
   "Unary    : Token operator, Expr right",
+  "Variable : Token name",
 ];
 
 const stmtList = [
   "Expression : Expr expression",
   "Print      : Expr expression",
+  "Var        : Token name, NullableExpr initializer",
 ];
 
 function defineAST(
@@ -31,7 +33,7 @@ function defineAST(
   const typeNames: string[] = [];
 
   for (const k in imports) {
-    writeLine(`import { ${k} } from "${imports[k]}";`);
+    writeLine(`import { ${imports[k]} } from "${k}";`);
   }
 
   for (const expr of content) {
@@ -108,6 +110,10 @@ function defineAST(
     );
   }
 
+  // nullable
+  writeLine("");
+  writeLine(`export type Nullable${name} = ${name} | null;`);
+
   // accept
   writeLine("");
   writeLine(
@@ -127,8 +133,11 @@ function defineAST(
 function main() {
   const path = process.argv[2];
 
-  defineAST(path, "Expr", exprList, { Token: "./token" });
-  defineAST(path, "Stmt", stmtList, { Expr: "./expr" });
+  defineAST(path, "Expr", exprList, { "./token": "Token" });
+  defineAST(path, "Stmt", stmtList, {
+    "./token": "Token",
+    "./expr": "Expr, NullableExpr",
+  });
 }
 
 main();

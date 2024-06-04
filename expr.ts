@@ -61,18 +61,35 @@ export function createUnaryExpr(
   };
 }
 
+export type VariableExpr = {
+  name: Token;
+  _type: "VariableExpr";
+};
+export function createVariableExpr(
+  name: Token,
+): VariableExpr {
+  return {
+    name,
+    _type: "VariableExpr",
+  };
+}
+
 export type Visitor<R> = {
   visitBinaryExpr: (expr: BinaryExpr) => R;
   visitGroupingExpr: (expr: GroupingExpr) => R;
   visitLiteralExpr: (expr: LiteralExpr) => R;
   visitUnaryExpr: (expr: UnaryExpr) => R;
+  visitVariableExpr: (expr: VariableExpr) => R;
 };
 
 export type Expr =
   | BinaryExpr
   | GroupingExpr
   | LiteralExpr
-  | UnaryExpr;
+  | UnaryExpr
+  | VariableExpr;
+
+export type NullableExpr = Expr | null;
 
 export function accept<R>(expr: Expr, visitor: Visitor<R>) {
   switch (expr._type) {
@@ -84,5 +101,7 @@ export function accept<R>(expr: Expr, visitor: Visitor<R>) {
       return visitor.visitLiteralExpr(expr);
     case "UnaryExpr":
       return visitor.visitUnaryExpr(expr);
+    case "VariableExpr":
+      return visitor.visitVariableExpr(expr);
   }
 }

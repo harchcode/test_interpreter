@@ -23,6 +23,9 @@ const astPrinter: Visitor<string> = {
   visitUnaryExpr(expr) {
     return parenthesize(expr.operator.lexeme, expr.right);
   },
+  visitVariableExpr(expr) {
+    return parenthesize("var", expr);
+  },
 };
 
 export function printAST(expr: Expr) {
