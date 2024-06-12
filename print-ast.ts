@@ -10,6 +10,9 @@ import {
 import { createToken } from "./token";
 
 const astPrinter: Visitor<string> = {
+  visitAssignExpr(expr) {
+    return parenthesize("assign", expr);
+  },
   visitBinaryExpr(expr) {
     return parenthesize(expr.operator.lexeme, expr.left, expr.right);
   },
@@ -25,6 +28,9 @@ const astPrinter: Visitor<string> = {
   },
   visitVariableExpr(expr) {
     return parenthesize("var", expr);
+  },
+  visitLogicalExpr(expr) {
+    return parenthesize("logical", expr);
   },
 };
 

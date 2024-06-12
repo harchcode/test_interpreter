@@ -1,17 +1,22 @@
 import fs from "node:fs";
 
 const exprList = [
+  "Assign   : Token name, Expr value",
   "Binary   : Expr left, Token operator, Expr right",
   "Grouping : Expr expression",
   "Literal  : unknown value",
+  "Logical  : Expr left, Token operator, Expr right",
   "Unary    : Token operator, Expr right",
   "Variable : Token name",
 ];
 
 const stmtList = [
+  "Block      : Stmt[] statements",
+  "If         : Expr condition, Stmt thenBranch, Stmt|null elseBranch",
   "Expression : Expr expression",
   "Print      : Expr expression",
   "Var        : Token name, NullableExpr initializer",
+  "While      : Expr condition, Stmt body",
 ];
 
 function defineAST(

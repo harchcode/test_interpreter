@@ -1,11 +1,26 @@
-import { defineVar, getVarValue } from "./environment";
+import {
+  Environment,
+  assignVar,
+  createEnvironment,
+  defineVar,
+  getVarValue,
+} from "./environment";
 import { Expr, Visitor as ExprVisitor, accept as acceptExpr } from "./expr";
 import { runtimeError } from "./nol";
 import { RuntimeError } from "./runtime-error";
 import { Stmt, Visitor as StmtVisitor, accept as acceptStmt } from "./stmt";
 import { Token } from "./token";
 
+let currentEnv = createEnvironment();
+
 const interpreter: ExprVisitor<unknown> & StmtVisitor<void> = {
+  visitAssignExpr(expr) {
+    const value = evaluate(expr.value);
+
+    assignVar(currentEnv, expr.name, value);
+
+    return value;
+  },
   visitLiteralExpr(expr) {
     return expr.value;
   },
@@ -74,7 +89,7 @@ const interpreter: ExprVisitor<unknown> & StmtVisitor<void> = {
     return null;
   },
   visitVariableExpr(expr) {
-    return getVarValue(expr.name);
+    return getVarValue(currentEnv, expr.name);
   },
   visitExpressionStmt(stmt) {
     evaluate(stmt.expression);
@@ -90,11 +105,56 @@ const interpreter: ExprVisitor<unknown> & StmtVisitor<void> = {
   visitVarStmt(stmt) {
     const value = stmt.initializer != null ? evaluate(stmt.initializer) : null;
 
-    defineVar(stmt.name.lexeme, value);
+    defineVar(currentEnv, stmt.name.lexeme, value);
 
     return null;
   },
+  visitBlockStmt(stmt) {
+    executeBlock(stmt.statements, createEnvironment(currentEnv));
+
+    return null;
+  },
+  visitIfStmt(stmt) {
+    if (isTruthy(evaluate(stmt.condition))) {
+      execute(stmt.thenBranch);
+    } else if (stmt.elseBranch != null) {
+      execute(stmt.elseBranch);
+    }
+
+    return null;
+  },
+  visitLogicalExpr(expr) {
+    const left = evaluate(expr.left);
+
+    if (expr.operator.type == "OR") {
+      if (isTruthy(left)) return left;
+    } else {
+      if (!isTruthy(left)) return left;
+    }
+
+    return evaluate(expr.right);
+  },
+  visitWhileStmt(stmt) {
+    while (isTruthy(evaluate(stmt.condition))) {
+      execute(stmt.body);
+    }
+    return null;
+  },
 };
+
+function executeBlock(statements: Stmt[], environment: Environment) {
+  const previous = currentEnv;
+
+  try {
+    currentEnv = environment;
+
+    for (const statement of statements) {
+      execute(statement);
+    }
+  } finally {
+    currentEnv = previous;
+  }
+}
 
 function evaluate(expr: Expr) {
   return acceptExpr(expr, interpreter);

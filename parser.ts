@@ -1,17 +1,22 @@
 import {
   Expr,
+  createAssignExpr,
   createBinaryExpr,
   createGroupingExpr,
   createLiteralExpr,
+  createLogicalExpr,
   createUnaryExpr,
   createVariableExpr,
 } from "./expr";
 import { error } from "./nol";
 import {
   Stmt,
+  createBlockStmt,
   createExpressionStmt,
+  createIfStmt,
   createPrintStmt,
   createVarStmt,
+  createWhileStmt,
 } from "./stmt";
 import { Token } from "./token";
 import { TokenType } from "./token-type";
@@ -59,20 +64,110 @@ function varDeclaration() {
   return createVarStmt(name, initializer);
 }
 
-function statement() {
+function block() {
+  const statements: Stmt[] = [];
+
+  while (!check("RIGHT_BRACE") && !isAtEnd()) {
+    statements.push(declaration());
+  }
+
+  consume("RIGHT_BRACE", "Expect '}' after block.");
+
+  return statements;
+}
+
+function statement(): Stmt {
+  if (match("FOR")) return forStatement();
+  if (match("IF")) return ifStatement();
   if (match("PRINT")) return printStatement();
+  if (match("WHILE")) return whileStatement();
+  if (match("LEFT_BRACE")) return createBlockStmt(block());
 
   return expressionStatement();
 }
 
-function printStatement() {
+function forStatement(): Stmt {
+  consume("LEFT_PAREN", "Expect '(' after 'for'.");
+
+  let initializer: Stmt | null;
+
+  if (match("SEMICOLON")) {
+    initializer = null;
+  } else if (match("VAR")) {
+    initializer = varDeclaration();
+  } else {
+    initializer = expressionStatement();
+  }
+
+  let condition: Expr | null = null;
+
+  if (!check("SEMICOLON")) {
+    condition = expression();
+  }
+
+  consume("SEMICOLON", "Expect ';' after loop condition.");
+
+  let increment: Expr | null = null;
+
+  if (!check("RIGHT_PAREN")) {
+    increment = expression();
+  }
+
+  consume("RIGHT_PAREN", "Expect ')' after for clauses.");
+
+  let body = statement();
+
+  if (increment != null) {
+    body = createBlockStmt([body, createExpressionStmt(increment)]);
+  }
+
+  if (condition == null) condition = createLiteralExpr(true);
+  body = createWhileStmt(condition, body);
+
+  if (initializer != null) {
+    body = createBlockStmt([initializer, body]);
+  }
+
+  return body;
+}
+
+function whileStatement(): Stmt {
+  consume("LEFT_PAREN", "Expect '(' after 'while'.");
+
+  const condition = expression();
+
+  consume("RIGHT_PAREN", "Expect ')' after condition.");
+
+  const body = statement();
+
+  return createWhileStmt(condition, body);
+}
+
+function ifStatement(): Stmt {
+  consume("LEFT_PAREN", "Expect '(' after 'if'.");
+
+  const condition = expression();
+
+  consume("RIGHT_PAREN", "Expect ')' after if condition.");
+
+  const thenBranch = statement();
+  let elseBranch: Stmt | null = null;
+
+  if (match("ELSE")) {
+    elseBranch = statement();
+  }
+
+  return createIfStmt(condition, thenBranch, elseBranch);
+}
+
+function printStatement(): Stmt {
   const value = expression();
   consume("SEMICOLON", "Expect ';' after value.");
 
   return createPrintStmt(value);
 }
 
-function expressionStatement() {
+function expressionStatement(): Stmt {
   const expr = expression();
   consume("SEMICOLON", "Expect ';' after expression.");
 
@@ -231,6 +326,48 @@ function equality(): Expr {
   return expr;
 }
 
+function assignment(): Expr {
+  const expr = or();
+
+  if (match("EQUAL")) {
+    const equals = previous();
+    const value = assignment();
+
+    if (expr._type === "VariableExpr") {
+      const name = expr.name;
+      return createAssignExpr(name, value);
+    }
+
+    parsingError(equals, "Invalid assignment target.");
+  }
+
+  return expr;
+}
+
+function or(): Expr {
+  let expr = and();
+
+  while (match("OR")) {
+    const operator = previous();
+    const right = and();
+    expr = createLogicalExpr(expr, operator, right);
+  }
+
+  return expr;
+}
+
+function and() {
+  let expr = equality();
+
+  while (match("AND")) {
+    const operator = previous();
+    const right = equality();
+    expr = createLogicalExpr(expr, operator, right);
+  }
+
+  return expr;
+}
+
 function expression(): Expr {
-  return equality();
+  return assignment();
 }
