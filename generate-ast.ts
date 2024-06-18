@@ -3,6 +3,7 @@ import fs from "node:fs";
 const exprList = [
   "Assign   : Token name, Expr value",
   "Binary   : Expr left, Token operator, Expr right",
+  "Call     : Expr callee, Token paren, Array<Expr> args",
   "Grouping : Expr expression",
   "Literal  : unknown value",
   "Logical  : Expr left, Token operator, Expr right",
@@ -12,9 +13,11 @@ const exprList = [
 
 const stmtList = [
   "Block      : Stmt[] statements",
-  "If         : Expr condition, Stmt thenBranch, Stmt|null elseBranch",
+  "If         : Expr condition, Stmt thenBranch, NullableStmt elseBranch",
   "Expression : Expr expression",
+  "Function   : Token name, Array<Token> params, Array<Stmt> body",
   "Print      : Expr expression",
+  "Return     : Token keyword, NullableExpr value",
   "Var        : Token name, NullableExpr initializer",
   "While      : Expr condition, Stmt body",
 ];

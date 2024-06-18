@@ -1,23 +1,65 @@
 import {
   Environment,
+  assignAt,
   assignVar,
   createEnvironment,
   defineVar,
+  getVarAt,
   getVarValue,
 } from "./environment";
-import { Expr, Visitor as ExprVisitor, accept as acceptExpr } from "./expr";
+import { Expr, accept as acceptExpr } from "./expr";
 import { runtimeError } from "./nol";
-import { RuntimeError } from "./runtime-error";
-import { Stmt, Visitor as StmtVisitor, accept as acceptStmt } from "./stmt";
+import { Return, RuntimeError } from "./runtime-error";
+import { FunctionStmt, Stmt, accept as acceptStmt } from "./stmt";
 import { Token } from "./token";
+import { Callable, Interpreter } from "./types";
 
-let currentEnv = createEnvironment();
+const locals: Map<Expr, number> = new Map<Expr, number>();
 
-const interpreter: ExprVisitor<unknown> & StmtVisitor<void> = {
+const globals = createEnvironment();
+let currentEnv = globals;
+
+function createFn(declaration: FunctionStmt, closure: Environment): Callable {
+  return {
+    arity: declaration.params.length,
+    call(_, args) {
+      const environment = createEnvironment(closure);
+
+      for (let i = 0; i < declaration.params.length; i++) {
+        defineVar(environment, declaration.params[i].lexeme, args[i]);
+      }
+
+      try {
+        executeBlock(declaration.body, environment);
+      } catch (returnValue) {
+        return (returnValue as Return).value;
+      }
+
+      return null;
+    },
+  };
+}
+
+defineVar(globals, "clock", {
+  arity: 0,
+  call() {
+    return Date.now() / 1000;
+  },
+} as Callable);
+
+const interpreter: Interpreter = {
   visitAssignExpr(expr) {
     const value = evaluate(expr.value);
 
     assignVar(currentEnv, expr.name, value);
+
+    const distance = locals.get(expr);
+
+    if (distance !== null && distance !== undefined) {
+      assignAt(currentEnv, distance, expr.name, value);
+    } else {
+      assignVar(globals, expr.name, value);
+    }
 
     return value;
   },
@@ -89,6 +131,7 @@ const interpreter: ExprVisitor<unknown> & StmtVisitor<void> = {
     return null;
   },
   visitVariableExpr(expr) {
+    return lookUpVariable(expr.name, expr);
     return getVarValue(currentEnv, expr.name);
   },
   visitExpressionStmt(stmt) {
@@ -140,7 +183,57 @@ const interpreter: ExprVisitor<unknown> & StmtVisitor<void> = {
     }
     return null;
   },
+  visitCallExpr(expr) {
+    const callee = evaluate(expr.callee);
+
+    const args: unknown[] = [];
+    for (const arg of expr.args) {
+      args.push(evaluate(arg));
+    }
+
+    if (!callee || typeof callee !== "object" || !("call" in callee)) {
+      throw new RuntimeError(
+        expr.paren,
+        "Can only call functions and classes."
+      );
+    }
+
+    const fn = callee as Callable;
+
+    if (args.length !== fn.arity) {
+      throw new RuntimeError(
+        expr.paren,
+        "Expected " + fn.arity + " arguments but got " + args.length + "."
+      );
+    }
+
+    return fn.call(interpreter, args);
+  },
+  visitFunctionStmt(stmt) {
+    const fn = createFn(stmt, currentEnv);
+
+    defineVar(currentEnv, stmt.name.lexeme, fn);
+
+    return null;
+  },
+  visitReturnStmt(stmt) {
+    let value: unknown = null;
+
+    if (stmt.value != null) value = evaluate(stmt.value);
+
+    throw new Return(value);
+  },
 };
+
+function lookUpVariable(name: Token, expr: Expr) {
+  const distance = locals.get(expr);
+
+  if (distance !== null && distance !== undefined) {
+    return getVarAt(currentEnv, distance, name.lexeme);
+  } else {
+    return getVarValue(globals, name);
+  }
+}
 
 function executeBlock(statements: Stmt[], environment: Environment) {
   const previous = currentEnv;
@@ -190,4 +283,8 @@ export function interpret(statements: Stmt[]) {
 
 function execute(stmt: Stmt) {
   acceptStmt(stmt, interpreter);
+}
+
+export function resolve(expr: Expr, depth: number) {
+  locals.set(expr, depth);
 }

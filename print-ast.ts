@@ -32,6 +32,9 @@ const astPrinter: Visitor<string> = {
   visitLogicalExpr(expr) {
     return parenthesize("logical", expr);
   },
+  visitCallExpr(expr) {
+    return parenthesize("call", expr);
+  },
 };
 
 export function printAST(expr: Expr) {

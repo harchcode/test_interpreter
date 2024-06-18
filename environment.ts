@@ -54,3 +54,39 @@ export function assignVar(
 
   throw new RuntimeError(name, "Undefined variable '" + name.lexeme + "'.");
 }
+
+function ancestor(
+  environment: Environment | null,
+  distance: number
+): Environment | null {
+  for (let i = 0; i < distance; i++) {
+    environment = environment?.enclosing ?? null;
+  }
+
+  return environment;
+}
+
+export function getVarAt(
+  environment: Environment,
+  distance: number,
+  name: string
+): unknown {
+  const a = ancestor(environment, distance);
+
+  if (!a) return null;
+
+  return a.values[name] ?? null;
+}
+
+export function assignAt(
+  environment: Environment,
+  distance: number,
+  name: Token,
+  value: unknown
+) {
+  const a = ancestor(environment, distance);
+
+  if (!a) return;
+
+  a.values[name.lexeme] = value;
+}

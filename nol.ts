@@ -5,6 +5,7 @@ import { initParser, parse } from "./parser";
 import { printAST } from "./print-ast";
 import { RuntimeError } from "./runtime-error";
 import { interpret } from "./interpreter";
+import { resolveAll } from "./resolver";
 
 let hadError = false;
 let hadRuntimeError = false;
@@ -40,6 +41,10 @@ export function run(source: string) {
   if (hadError || !statements) return;
 
   // console.log(printAST(expr));
+  resolveAll(statements);
+
+  if (hadError) return;
+
   interpret(statements);
 }
 

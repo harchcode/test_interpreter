@@ -35,6 +35,25 @@ export function createBinaryExpr(
   };
 }
 
+export type CallExpr = {
+  callee: Expr;
+  paren: Token;
+  args: Array<Expr>;
+  _type: "CallExpr";
+};
+export function createCallExpr(
+  callee: Expr,
+  paren: Token,
+  args: Array<Expr>,
+): CallExpr {
+  return {
+    callee,
+    paren,
+    args,
+    _type: "CallExpr",
+  };
+}
+
 export type GroupingExpr = {
   expression: Expr;
   _type: "GroupingExpr";
@@ -112,6 +131,7 @@ export function createVariableExpr(
 export type Visitor<R> = {
   visitAssignExpr: (expr: AssignExpr) => R;
   visitBinaryExpr: (expr: BinaryExpr) => R;
+  visitCallExpr: (expr: CallExpr) => R;
   visitGroupingExpr: (expr: GroupingExpr) => R;
   visitLiteralExpr: (expr: LiteralExpr) => R;
   visitLogicalExpr: (expr: LogicalExpr) => R;
@@ -122,6 +142,7 @@ export type Visitor<R> = {
 export type Expr =
   | AssignExpr
   | BinaryExpr
+  | CallExpr
   | GroupingExpr
   | LiteralExpr
   | LogicalExpr
@@ -136,6 +157,8 @@ export function accept<R>(expr: Expr, visitor: Visitor<R>) {
       return visitor.visitAssignExpr(expr);
     case "BinaryExpr":
       return visitor.visitBinaryExpr(expr);
+    case "CallExpr":
+      return visitor.visitCallExpr(expr);
     case "GroupingExpr":
       return visitor.visitGroupingExpr(expr);
     case "LiteralExpr":

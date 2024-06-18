@@ -2,6 +2,7 @@ import {
   Expr,
   createAssignExpr,
   createBinaryExpr,
+  createCallExpr,
   createGroupingExpr,
   createLiteralExpr,
   createLogicalExpr,
@@ -13,8 +14,10 @@ import {
   Stmt,
   createBlockStmt,
   createExpressionStmt,
+  createFunctionStmt,
   createIfStmt,
   createPrintStmt,
+  createReturnStmt,
   createVarStmt,
   createWhileStmt,
 } from "./stmt";
@@ -40,6 +43,7 @@ export function parse() {
 
 function declaration() {
   try {
+    if (match("FUN")) return fn("function");
     if (match("VAR")) return varDeclaration();
 
     return statement();
@@ -48,6 +52,30 @@ function declaration() {
 
     throw err;
   }
+}
+
+function fn(kind: "function" | "method") {
+  const name = consume("IDENTIFIER", "Expect " + kind + " name.");
+
+  consume("LEFT_PAREN", "Expect '(' after " + kind + " name.");
+
+  const parameters: Token[] = [];
+
+  if (!check("RIGHT_PAREN")) {
+    do {
+      if (parameters.length >= 255) {
+        error(peek(), "Can't have more than 255 parameters.");
+      }
+
+      parameters.push(consume("IDENTIFIER", "Expect parameter name."));
+    } while (match("COMMA"));
+  }
+
+  consume("RIGHT_PAREN", "Expect ')' after parameters.");
+  consume("LEFT_BRACE", "Expect '{' before " + kind + " body.");
+  const body = block();
+
+  return createFunctionStmt(name, parameters, body);
 }
 
 function varDeclaration() {
@@ -80,10 +108,23 @@ function statement(): Stmt {
   if (match("FOR")) return forStatement();
   if (match("IF")) return ifStatement();
   if (match("PRINT")) return printStatement();
+  if (match("RETURN")) return returnStatement();
   if (match("WHILE")) return whileStatement();
   if (match("LEFT_BRACE")) return createBlockStmt(block());
 
   return expressionStatement();
+}
+
+function returnStatement(): Stmt {
+  const keyword = previous();
+  let value: Expr | null = null;
+
+  if (!check("SEMICOLON")) {
+    value = expression();
+  }
+
+  consume("SEMICOLON", "Expect ';' after return value.");
+  return createReturnStmt(keyword, value);
 }
 
 function forStatement(): Stmt {
@@ -263,6 +304,38 @@ function primary(): Expr {
   throw parsingError(peek(), "Expect expression.");
 }
 
+function call(): Expr {
+  let expr = primary();
+
+  while (true) {
+    if (match("LEFT_PAREN")) {
+      expr = finishCall(expr);
+    } else {
+      break;
+    }
+  }
+
+  return expr;
+}
+
+function finishCall(callee: Expr): Expr {
+  const args: Expr[] = [];
+
+  if (!check("RIGHT_PAREN")) {
+    do {
+      if (args.length >= 255) {
+        error(peek(), "Can't have more than 255 arguments.");
+      }
+
+      args.push(expression());
+    } while (match("COMMA"));
+  }
+
+  const paren = consume("RIGHT_PAREN", "Expect ')' after arguments.");
+
+  return createCallExpr(callee, paren, args);
+}
+
 function unary(): Expr {
   if (match("BANG", "MINUS")) {
     const operator = previous();
@@ -271,7 +344,7 @@ function unary(): Expr {
     return createUnaryExpr(operator, right);
   }
 
-  return primary();
+  return call();
 }
 
 function factor(): Expr {

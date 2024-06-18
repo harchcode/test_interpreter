@@ -17,13 +17,13 @@ export function createBlockStmt(
 export type IfStmt = {
   condition: Expr;
   thenBranch: Stmt;
-  elseBranch: Stmt|null;
+  elseBranch: NullableStmt;
   _type: "IfStmt";
 };
 export function createIfStmt(
   condition: Expr,
   thenBranch: Stmt,
-  elseBranch: Stmt|null,
+  elseBranch: NullableStmt,
 ): IfStmt {
   return {
     condition,
@@ -46,6 +46,25 @@ export function createExpressionStmt(
   };
 }
 
+export type FunctionStmt = {
+  name: Token;
+  params: Array<Token>;
+  body: Array<Stmt>;
+  _type: "FunctionStmt";
+};
+export function createFunctionStmt(
+  name: Token,
+  params: Array<Token>,
+  body: Array<Stmt>,
+): FunctionStmt {
+  return {
+    name,
+    params,
+    body,
+    _type: "FunctionStmt",
+  };
+}
+
 export type PrintStmt = {
   expression: Expr;
   _type: "PrintStmt";
@@ -56,6 +75,22 @@ export function createPrintStmt(
   return {
     expression,
     _type: "PrintStmt",
+  };
+}
+
+export type ReturnStmt = {
+  keyword: Token;
+  value: NullableExpr;
+  _type: "ReturnStmt";
+};
+export function createReturnStmt(
+  keyword: Token,
+  value: NullableExpr,
+): ReturnStmt {
+  return {
+    keyword,
+    value,
+    _type: "ReturnStmt",
   };
 }
 
@@ -95,7 +130,9 @@ export type Visitor<R> = {
   visitBlockStmt: (stmt: BlockStmt) => R;
   visitIfStmt: (stmt: IfStmt) => R;
   visitExpressionStmt: (stmt: ExpressionStmt) => R;
+  visitFunctionStmt: (stmt: FunctionStmt) => R;
   visitPrintStmt: (stmt: PrintStmt) => R;
+  visitReturnStmt: (stmt: ReturnStmt) => R;
   visitVarStmt: (stmt: VarStmt) => R;
   visitWhileStmt: (stmt: WhileStmt) => R;
 };
@@ -104,7 +141,9 @@ export type Stmt =
   | BlockStmt
   | IfStmt
   | ExpressionStmt
+  | FunctionStmt
   | PrintStmt
+  | ReturnStmt
   | VarStmt
   | WhileStmt;
 
@@ -118,8 +157,12 @@ export function accept<R>(stmt: Stmt, visitor: Visitor<R>) {
       return visitor.visitIfStmt(stmt);
     case "ExpressionStmt":
       return visitor.visitExpressionStmt(stmt);
+    case "FunctionStmt":
+      return visitor.visitFunctionStmt(stmt);
     case "PrintStmt":
       return visitor.visitPrintStmt(stmt);
+    case "ReturnStmt":
+      return visitor.visitReturnStmt(stmt);
     case "VarStmt":
       return visitor.visitVarStmt(stmt);
     case "WhileStmt":
